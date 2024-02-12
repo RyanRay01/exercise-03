@@ -1,0 +1,88 @@
+---
+title: "EDA-challenge"
+output: html_document
+date: "2024-02-12"
+---
+
+```{r}
+library(tidyverse)
+
+# Open file and read into r as "d"
+f <- "https://raw.githubusercontent.com/difiore/ada-2024-datasets/main/data-wrangling.csv"
+d <- read.csv(f, header = TRUE)
+
+# Create new variable BSD (body size dimorphism); the average mass ratio
+# between males and females
+
+d <- d |> mutate(BSD = Body_mass_male_mean / Body_mass_female_mean)
+
+# Create new variable sex_ratio, the ratio of the number of adult females
+# to adult males
+
+d <- d |> mutate(sex_ratio = AdultFemale / AdultMales)
+
+# Create new variable DI (Defensability Index), ratio of day range length 
+# to the diameter of the home range
+
+d <- d |> mutate(DI = DayLength_km / 2*(sqrt((HomeRange_km2/pi))))
+
+# Plot of relationship between day range length and time spent moving 
+p1 <- ggplot(d) + geom_point(mapping = aes (x = DayLength_km, y = Move))
+
+# Creating new data frame of average movement based on family
+DL_fam <- aggregate(DayLength_km ~ Family, data = d, FUN = mean)
+M_fam <- aggregate(Move ~ Family, data = d, FUN = mean)
+mvmnt_fam <- merge(data.frame(DL_fam, row.names=NULL), data.frame(M_fam, row.names=NULL), by = 0, all = TRUE)[-1]
+mvmnt_fam <- subset(mvmnt_fam, select = -c(Family.y) )
+mvmnt_fam <- mvmnt_fam |> rename(Family = Family.x)
+
+# Creating a plot of average movement grouped by family
+p2 <- ggplot(mvmnt_fam) + geom_point(mapping = aes (x = DayLength_km, y = Move, group = Family, color = Family))
+
+# There appears to be a slight correlation between day length and time spent moving, however when you group the data by family this trend is lost.
+
+# Plot of relationship between day range length and mean group size
+p3 <- ggplot(d) + geom_point(mapping = aes (x = MeanGroupSize, y = DayLength_km))
+
+# Create new dataframe with day range length and mean group size by family
+mgs_fam <- aggregate(MeanGroupSize ~ Family, data = d, FUN = mean)
+grpmv_fam <- merge(data.frame(mgs_fam, row.names=NULL), data.frame(DL_fam, row.names=NULL), by = 0, all = TRUE)[-1]
+grpmv_fam <- subset(grpmv_fam, select = -c(Family.y) )
+grpmv_fam <- grpmv_fam |> rename(Family = Family.x)
+
+# Creating a plot of day length and mean group size grouped by family
+p4 <- ggplot(grpmv_fam) + geom_point(mapping = aes (x = DayLength_km, y = MeanGroupSize, group = Family, color = Family))
+
+# There is a slight trend for larger groups travelling farther, 
+# cercopithecidae appears to best represent this trend
+
+# Plot of the relationship between body size dimorphism and canine size dimorphism 
+p5 <- ggplot(d) + geom_point(mapping = aes (x = BSD, y = Canine_Dimorphism))
+
+# Creating new data frame of the relationship between body size dimorphism # and canine size dimorphism based on family
+bSD_fam <- aggregate(BSD ~ Family, data = d, FUN = mean)
+cSD_fam <- aggregate(Canine_Dimorphism ~ Family, data = d, FUN = mean)
+bScSr_fam <- merge(data.frame(bSD_fam, row.names=NULL), data.frame(cSD_fam, row.names=NULL), by = 0, all = TRUE)[-1]
+bScSr_fam <- subset(bScSr_fam, select = -c(Family.y) )
+bScSr_fam <- bScSr_fam |> rename(Family = Family.x)
+
+# Creating a plot of the relationship between body size dimorphism and 
+# canine size dimorphism  grouped by family
+p6 <- ggplot(bScSr_fam) + geom_point(mapping = aes (x = BSD, y = Canine_Dimorphism, group = Family, color = Family))
+
+# There is a general trend of canine size increasing with body size dimorphism
+
+# Create new variable for diet strategy
+d <- d |> mutate(diet_strategy = case_when(Fruit >= 50 ~ "Frugivore", Leaves >= 50 ~ "Folivore", Fruit < 50 & Leaves < 50 ~ "Omnivore"))
+
+# Boxplots comparing group size to diet strategy
+p7 <- ggplot(drop_na(d), aes(x = diet_strategy, y=MeanGroupSize, fill=diet_strategy)) + geom_boxplot()
+
+dSgS <- aggregate(MeanGroupSize ~ diet_strategy, data = d, FUN = mean)
+
+# On average frugivores live in bigger groups than folivores
+
+d2 <- d |> mutate(Binomial = paste(Genus, Species)) |> select(Binomial, Family, Brain_Size_Species_Mean, Body_mass_male_mean) |> group_by(Family) |> drop_na() |> aggregate(cbind(Brain_Size_Species_Mean,Body_mass_male_mean) ~ Family, FUN = mean) |> arrange(Brain_Size_Species_Mean)
+
+```
+
